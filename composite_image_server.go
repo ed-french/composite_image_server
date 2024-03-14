@@ -1,18 +1,13 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"html/template"
-	"io"
 	"log"
 	"net/http"
-	"time"
 
 	"os"
-
-	"strings"
 
 	"image"
 	"image/color"
@@ -24,6 +19,10 @@ import (
 	"encoding/json"
 	"math"
 	"math/rand"
+
+	"github.com/disintegration/imaging"
+
+	"path/filepath"
 )
 
 var template_set *template.Template
@@ -493,30 +492,30 @@ func renderTemplate(response http.ResponseWriter, template_name string, page *Pa
 	}
 }
 
-func viewHandler(response http.ResponseWriter, request *http.Request) {
-	title := request.URL.Path[len("/view/"):]
-	fmt.Printf("Request to view page : %s", title)
-	page, err := loadPage(title)
-	if err != nil {
-		fmt.Println("Failed to load the page from disc")
-		http.Redirect(response, request, "/edit/"+title, http.StatusFound)
-		return
-	}
-	fmt.Println("About to apply the template....")
-	renderTemplate(response, "view", page)
-}
+// func viewHandler(response http.ResponseWriter, request *http.Request) {
+// 	title := request.URL.Path[len("/view/"):]
+// 	fmt.Printf("Request to view page : %s", title)
+// 	page, err := loadPage(title)
+// 	if err != nil {
+// 		fmt.Println("Failed to load the page from disc")
+// 		http.Redirect(response, request, "/edit/"+title, http.StatusFound)
+// 		return
+// 	}
+// 	fmt.Println("About to apply the template....")
+// 	renderTemplate(response, "view", page)
+// }
 
-func saveHandler(response http.ResponseWriter, request *http.Request) {
-	title := request.URL.Path[len("/save/"):]
-	body := request.FormValue("body")
-	page := &Page{Title: title, Body: []byte(body)}
-	err := page.save()
-	if err != nil {
-		http.Error(response, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	http.Redirect(response, request, "/view/"+title, http.StatusFound)
-}
+// func saveHandler(response http.ResponseWriter, request *http.Request) {
+// 	title := request.URL.Path[len("/save/"):]
+// 	body := request.FormValue("body")
+// 	page := &Page{Title: title, Body: []byte(body)}
+// 	err := page.save()
+// 	if err != nil {
+// 		http.Error(response, err.Error(), http.StatusInternalServerError)
+// 		return
+// 	}
+// 	http.Redirect(response, request, "/view/"+title, http.StatusFound)
+// }
 
 func make_random_snapshot() *Snapshot {
 	width := 60 + random.Int31n(100)
@@ -582,11 +581,16 @@ var (
 	CHUNKY_GREEN       NamedColour = NamedColour{"CHUNKY GREEN", 0, 200, 0, 100}
 )
 
-func blueHandler(w http.ResponseWriter, r *http.Request) {
+func test_layout_handler(w http.ResponseWriter, r *http.Request) {
 
-	image_filenames := fetch_image_filenames()
+	image_filenames, err := fetch_local_image_filenames("photos/")
+	if err != nil {
+		log.Fatal("Couldn't fetch the image filenames")
+		http.Error(w, "Couldn't fetch the image filenames", 500)
+		return
+	}
 
-	snapshots, err := snapshots_from_filenames(image_filenames)
+	snapshots, err := snapshots_from_local_filenames(image_filenames, "photos/")
 	if err != nil {
 		log.Fatal("Couldn't fetch the snapshots")
 		http.Error(w, "Couldn't fetch the snapshots", 500)
@@ -626,7 +630,7 @@ func blueHandler(w http.ResponseWriter, r *http.Request) {
 
 	for i := 1; i < len(snapshots); i++ {
 		cog := snap_set.get_CoG()
-		log.Printf("Cog: %v\n", cog)
+		// log.Printf("Cog: %v\n", cog)
 		draw_CoG(canvas, snap_set.get_CoG())
 
 		another_img := snapshots[i]
@@ -640,62 +644,6 @@ func blueHandler(w http.ResponseWriter, r *http.Request) {
 	for _, snap := range snap_set.Snaps {
 		snap.draw_rect(canvas, GHOSTLY_GREY_GREEN)
 	}
-
-	// snap_set.append(*another_img)
-	// another_img.draw_rect(canvas, SOLID_BLUE)
-
-	// second_img := make_random_snapshot()
-
-	// positions := snap_set.possible_positions(second_img)
-
-	// for _, position := range positions {
-	// 	second_img.tl_x = position.lower
-	// 	second_img.tl_y = position.upper
-	// 	second_img.draw_rect(canvas, GHOSTLY_GREY_GREEN)
-	// }
-
-	// fmt.Printf("Second: %s\n", second_img.get_str())
-	// second_img.draw(canvas, GHOSTLY_GREY_GREEN)
-	// draw_CoG(canvas, second_img.get_CoG())
-
-	// overlapis := find_overlap(first_img, second_img)
-
-	// fmt.Println(overlapis.as_str())
-
-	// // Figure out shortest move to clear in X & Y
-
-	// var x_move_to_clear int32 = 0
-	// var y_move_to_clear int32 = 0
-
-	// if overlapis.x_to_left < overlapis.x_to_right {
-	// 	x_move_to_clear = -overlapis.x_to_left
-	// } else {
-	// 	x_move_to_clear = overlapis.x_to_right
-	// }
-	// if overlapis.y_to_top < overlapis.y_to_bottom {
-	// 	y_move_to_clear = -overlapis.y_to_top
-	// } else {
-	// 	y_move_to_clear = overlapis.y_to_bottom
-	// }
-
-	// // set a boolean for if we're going to clear by moving in x (false=y)
-	// clear_in_x := (Abs(x_move_to_clear) < Abs(y_move_to_clear))
-
-	// moved_second := second_img
-
-	// if clear_in_x {
-	// 	moved_second.tl_x = moved_second.tl_x + x_move_to_clear
-	// } else {
-	// 	moved_second.tl_y = moved_second.tl_y + y_move_to_clear
-	// }
-	// fmt.Printf("Moved 2nd: %s\n", moved_second.get_str())
-	// moved_second.draw(canvas, CHUNKY_GREEN)
-	// draw_CoG(canvas, moved_second.get_CoG())
-
-	// snap_set.append(*moved_second)
-
-	// // Draw new CoG
-	// draw_CoG(canvas, snap_set.get_CoG())
 
 	var img image.Image = canvas
 	writeImage(w, &img)
@@ -750,9 +698,14 @@ func compositeMapHandler(response http.ResponseWriter, request *http.Request) {
 
 	// Fetch the list of images, and setup list of snapshots to be fitted
 
-	image_filenames := fetch_image_filenames()
+	image_filenames, err := fetch_local_image_filenames("photos/")
+	if err != nil {
+		log.Fatal("Couldn't fetch the image filenames")
+		http.Error(response, "Couldn't fetch the image filenames", 500)
+		return
+	}
 
-	snapshots, err := snapshots_from_filenames(image_filenames)
+	snapshots, err := snapshots_from_local_filenames(image_filenames, "photos/")
 	if err != nil {
 		log.Fatal("Couldn't fetch the snapshots")
 		http.Error(response, "Couldn't fetch the snapshots", 500)
@@ -799,19 +752,6 @@ func compositeMapHandler(response http.ResponseWriter, request *http.Request) {
 }
 
 func compositePageHandler(response http.ResponseWriter, request *http.Request) {
-	// Return html template for the page
-
-	// template, err := template_set.ParseFiles("composite.html")
-	// if err != nil {
-	// 	log.Printf("Error loading template: \n%v\n", err)
-	// 	return
-	// }
-
-	// err = template.Execute(response, "")
-
-	// if err != nil {
-	// 	log.Printf("Error rendering template:\n%v\n", err)
-	// }
 
 	varmap := map[string]interface{}{
 		"table": "none",
@@ -824,205 +764,102 @@ func compositePageHandler(response http.ResponseWriter, request *http.Request) {
 
 	err := template_set.ExecuteTemplate(response, "composite.html", varmap)
 	if err != nil {
-		log.Fatalf("Failed to execute template home.html %v", err)
+		log.Fatalf("Failed to execute template composite.html %v", err)
 	}
 
 }
 
-func homeHandler(w http.ResponseWriter, r *http.Request) {
-	live_count++
-	files, err := os.ReadDir("./")
-	if err != nil {
-		log.Fatal(err)
-	}
-	var builder strings.Builder
+func homeHandler(response http.ResponseWriter, request *http.Request) {
+	response.Write([]byte(`<a href="/composite_page">Composite Page</a>`))
 
-	for _, filename := range files {
-		name := filename.Name()
-		if strings.HasSuffix(name, ".txt") {
-			name = strings.TrimSuffix(name, ".txt")
-			builder.WriteString(`<li><a href="`)
-			builder.WriteString("/view/")
-			builder.WriteString(name)
-			builder.WriteString(`">`)
-			builder.WriteString(name)
-			builder.WriteString("</a></li>\n")
+}
+
+func fetch_local_image_filenames(image_path string) ([]string, error) {
+
+	all_image_filenames, err := filepath.Glob(image_path + "*.jpg")
+	if err != nil {
+		return nil, err
+	}
+
+	// We only want the filename from the whole thing
+	for i, filename := range all_image_filenames {
+		all_image_filenames[i] = filepath.Base(filename)
+
+	}
+	log.Printf("Found %v images to consider\nFirst is : %v\n", len(all_image_filenames), all_image_filenames[0])
+
+	// choose quantity
+
+	image_count := random.Intn(30) + 1
+	if image_count > 12 {
+		image_count = 1
+	}
+
+	image_set := make([]string, 0, image_count)
+	image_indexes := make(map[int]bool)
+
+	for {
+		// Are we done
+		if len(image_set) == image_count {
+			break
+		}
+		// Try and add one
+		index := random.Intn(len(all_image_filenames))
+		if !image_indexes[index] {
+			image_indexes[index] = true
+			new_image := all_image_filenames[index]
+			image_set = append(image_set, new_image)
 		}
 
 	}
-	// live_count_html := fmt.Sprintf("<h1>Live count %d</h1>", live_count)
-	// builder.WriteString(live_count_html)
+	log.Printf("Found image set filenames: %v\n", image_set)
+	return image_set, nil
+}
 
-	// tpl := template.Must(template.New("main").Parse(`{{define "T"}}{{.table}}{{.spare}}{{end}}`))
+func snapshot_from_jpeg_file(filename string, filepath string) (Snapshot, error) {
+	// file, err := os.Open(filepath + filename)
 
-	varmap := map[string]interface{}{
-		"table": template.HTML(builder.String()),
-		"spare": "other",
-	}
+	// if err != nil {
+	// 	log.Printf("Failed to load : %v\nErr:%v\n", filename, err)
+	// 	return Snapshot{}, err
+	// }
+	// defer file.Close()
 
-	// duration := 10 * time.Second
+	// img, err := jpeg.Decode(file)
 
-	// time.Sleep(duration)
+	img, err := imaging.Open(filepath+filename, imaging.AutoOrientation(true))
 
-	err = template_set.ExecuteTemplate(w, "home.html", varmap)
 	if err != nil {
-		log.Fatalf("Failed to execute template home.html %v", err)
+		log.Printf("Failed to decode the image: %v\n", filename)
+		return Snapshot{}, err
 	}
-	// live_count--
+	res := Snapshot{
+		X:        0,
+		Y:        0,
+		Width:    int32(img.Bounds().Dx()),
+		Height:   int32(img.Bounds().Dy()),
+		Location: filename,
+	}
+	return res, nil
 
 }
 
-func fetch_image_filenames() []string {
-
-	image_size_selector := random.Intn(20) + 1
-
-	if image_size_selector > 9 {
-		image_size_selector = 1
-	}
-	max_count := image_size_selector
-	min_count := image_size_selector
-
-	IMAGE_SET_URL := fmt.Sprintf("http://192.168.1.125/photo_list?max_count=%v&min_count=%v", max_count, min_count)
-
-	client := http.Client{
-		Timeout: time.Second * 15, // Timeout after 2 seconds
-	}
-
-	req, err := http.NewRequest(http.MethodGet, IMAGE_SET_URL, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	req.Header.Set("User-Agent", "go_image_tiler")
-
-	res, getErr := client.Do(req)
-	if getErr != nil {
-		log.Fatal(getErr)
-	}
-
-	if res.Body != nil {
-		defer res.Body.Close()
-	}
-
-	body, readErr := io.ReadAll(res.Body)
-	if readErr != nil {
-		log.Fatal(readErr)
-	}
-
-	log.Println(string(body))
-
-	var photo_files []string
-
-	json.Unmarshal(body, &photo_files)
-
-	log.Println(photo_files)
-
-	return photo_files
-}
-
-func check_fetchable_image(filename string) bool {
-	client := http.Client{
-		Timeout: 60 * time.Second,
-	}
-
-	res, err := client.Get("http://192.168.1.125/fetch_photo/" + filename)
-
-	if err != nil || res.StatusCode != 200 {
-		log.Printf("Failed to fetch image: %v\n", filename)
-		return false
-	}
-	defer res.Body.Close()
-
-	image, _, err := image.Decode(res.Body)
-	if image.Bounds().String() == "fishcakes" {
-		fmt.Println("fishcakes")
-	}
-	if err != nil {
-		log.Printf("Couldn't decode the image:\n\t\t%v\n\t\t%v\n\t\tSize of body:%v\n", filename, err, res.ContentLength)
-		return false
-	}
-	return true
-
-}
-
-func snapshots_from_filenames(filenames []string) ([]Snapshot, error) {
+func snapshots_from_local_filenames(filenames []string, filepath string) ([]Snapshot, error) {
 	snaps := make([]Snapshot, len(filenames))
-	client := http.Client{
-		Timeout: 60 * time.Second,
-	}
-
 	for i, filename := range filenames {
+		snap, err := snapshot_from_jpeg_file(filename, filepath)
 
-		res, err := client.Get("http://192.168.1.125/measure_photo_size/" + filename)
-
-		if err != nil || res.StatusCode != 200 {
-			// handle errors
-			log.Printf("Couldn't fetch the image size:%v\n", filename)
-			return nil, err
-		}
-		defer res.Body.Close()
-
-		// extract the size (it'll be in a string that looks like (width,height))
-		body_bytes, err := io.ReadAll(res.Body)
 		if err != nil {
-			log.Fatalln(err)
+			log.Printf("IGNORING BAD FILE: %v\n", filename)
+
+		} else {
+			snaps[i] = snap
 		}
-
-		bits := strings.Split(string(body_bytes), ",")
-		width, err := strconv.Atoi(bits[0][1:])
-		if err != nil {
-			log.Fatalln(err)
-		}
-
-		height, err := strconv.Atoi(bits[1][1 : len(bits[1])-1])
-		if err != nil {
-			log.Fatalln(err)
-		}
-
-		// Create a new snapshot
-		snaps[i] = Snapshot{int32(width), int32(height), 0, 0, filename}
-
 	}
 	return snaps, nil
-
 }
 
 var random *rand.Rand
-
-func check_all_images() error {
-	// Open the file for reading
-	readFile, err := os.Open("image_list.txt")
-
-	if err != nil {
-		fmt.Println(err)
-	}
-	fileScanner := bufio.NewScanner(readFile)
-	fileScanner.Split(bufio.ScanLines)
-	var fileLines []string
-
-	for fileScanner.Scan() {
-		fileLines = append(fileLines, fileScanner.Text())
-	}
-
-	readFile.Close()
-
-	// for _, line := range fileLines {
-	// 	fmt.Println(line)
-	// }
-
-	// fmt.Println(fileLines)
-
-	bads := make([]string, 100)
-
-	for _, filename := range fileLines {
-		works := check_fetchable_image(filename)
-		if !works {
-			bads = append(bads, filename)
-			fmt.Printf("BAD=%v\n", filename)
-		}
-	}
-	return nil
-}
 
 func main() {
 
@@ -1052,19 +889,6 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Println(c)
-
-	dat, err := os.ReadFile("layouts.json")
-	if err != nil {
-
-		log.Fatal(err)
-	}
-
-	var placementset PlacementSet
-	if err := json.Unmarshal(dat, &placementset); err != nil {
-		log.Fatal(err)
-	}
-
-	log.Printf("placementset[1].Placements[0].OffsetDirection: %v", placementset[1].Placements[0].OffsetDirection)
 
 	template_set, err = template.ParseGlob("./templates/*")
 	if err != nil {
@@ -1099,13 +923,10 @@ func main() {
 	// 	return
 	// }
 
-	http.HandleFunc("/view/", viewHandler)
+	fs := http.FileServer(http.Dir("./photos"))
+	http.Handle("/photos/", http.StripPrefix("/photos/", fs)) // stripPrefix("/photos/", fs") fs)
 
-	http.HandleFunc("/edit/", editHandler)
-
-	http.HandleFunc("/save/", saveHandler)
-
-	http.HandleFunc("/blue/", blueHandler)
+	http.HandleFunc("/test_layout_handler/", test_layout_handler)
 
 	http.HandleFunc("/composite_map/", compositeMapHandler)
 
