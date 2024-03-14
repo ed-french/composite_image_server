@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+    <style>
+        body {
+            margin:0px;
+        }
+        #main_canvas {
+            left:0px;
+            right:0px;
+            width:100vw;
+            height:100vh;
+            background-image: url("http://192.168.1.125/fetch_photo/background.jpeg");
+            background-size: cover;
+        }
+        .precise {
+            position:absolute;
+            border:1px soild grey;
+            margin:0px;
+            padding:0px;
+            background-size:cover;
+            background-color: grey;
+        }
+    </style>
+    <div id="main_canvas">
+    </div>
+<body>
+
+</body>
+
+<script>
+    //document.body.style.overflow="hidden"
+
+    var photos=[]
+
+    function new_page() {
+        let pageheight=document.documentElement.clientHeight
+        let pagewidth=document.documentElement.clientWidth
+
+        let url="http://localhost:8080/composite_map?height="+pageheight+"&width="+pagewidth;
+        console.log(url)
+        fetch(url) // api for the get request
+        .then(response => response.json())
+        .then(data => render_canvas(data));
+        
+    }
+
+    function show_another_photo() {
+        if (photos.length>0) {
+            next_photo=photos.pop()
+            var container=document.getElementById("main_canvas");
+            container.append(next_photo);
+            window.setTimeout(show_another_photo,1);
+        }
+        
+
+    }
+
+
+
+    function render_canvas(data) {
+        /* sample data 
+                {"snaps":[
+                    {"width":187,"height":140,"x":264,"y":499,"location":"20120807_192159.jpg"},
+                    {"width":263,"height":197,"x":0,"y":471,"location":"20230412_165249.jpg"},
+                    {"width":369,"height":179,"x":23,"y":291,"location":"20210726_193825.jpg"},
+                    {"width":369,"height":179,"x":392,"y":320,"location":"20201230_195933.jpg"},
+                    {"width":263,"height":197,"x":452,"y":499,"location":"20230530_131746.jpg"},
+                    {"width":196,"height":112,"x":255,"y":668,"location":"cnv00017.jpg"},
+                    {"width":76,"height":57,"x":392,"y":262,"location":"glencoe03_19.jpg"},
+                    {"width":140,"height":187,"x":115,"y":668,"location":"20120809_151104.jpg"},
+                    {"width":369,"height":207,"x":452,"y":697,"location":"20220422_100018.jpg"},
+                    {"width":187,"height":140,"x":264,"y":781,"location":"20120807_192315.jpg"}
+                ]}
+
+        */
+       var container=document.getElementById("main_canvas");
+
+       // Remove all old nodes:
+
+ 
+        photos=[];
+       Array.from(data.snaps).forEach(function(snap) {
+        console.log(snap);
+        var el=document.createElement("div");
+        el.className="precise";
+        el.style.width=snap.width+"px";
+        el.style.height=snap.height+"px";
+        el.style.top=snap.y+"px";
+        el.style.left=snap.x+"px";
+        escaped_location=encodeURI(snap.location)
+        console.log("Location encoded: "+escaped_location)
+        var photo_url="http://192.168.1.125/fetch_photo/"+escaped_location+"?width="+snap.width;
+        console.log("Fetching "+photo_url)
+        el.style.backgroundImage="url("+photo_url+")";
+        photos.push(el);// Save until we have them all
+        
+        
+
+       });
+
+
+       // Delete all the old ones...
+
+       var container=document.getElementById("main_canvas");
+
+       while (container.firstChild) {
+            container.removeChild(container.lastChild);
+        }
+        show_another_photo();
+
+
+        
+
+       window.setTimeout(new_page,60000);// repeat ad-infinitum
+
+    }
+
+
+    new_page();
+</script>
+
+</html>
+

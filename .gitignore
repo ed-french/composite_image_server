@@ -1,0 +1,4 @@
+photos/*
+*.exe
+image_list.txt
+.vscode/*

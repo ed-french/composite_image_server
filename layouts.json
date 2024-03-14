@@ -1,0 +1,36 @@
+[
+    {
+        "image_count": 1,
+        "placements": [
+            {
+                "size_index": 0,
+                "placement_order": 0,
+                "offset_direction": [
+                    0,
+                    0
+                ]
+            }
+        ]
+    },
+    {
+        "image_count": 2,
+        "placements": [
+            {
+                "size_index": 0,
+                "placement_order": 0,
+                "offset_direction": [
+                    0,
+                    0
+                ]
+            },
+            {
+                "size_index": 1,
+                "placement_order": 1,
+                "offset_direction": [
+                    1,
+                    0
+                ]
+            }
+        ]
+    }
+]

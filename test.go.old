@@ -1,0 +1,50 @@
+package main
+
+import (
+	"bytes"
+	"fmt"
+	"html/template"
+
+	"log"
+
+	"os"
+)
+
+func main() {
+
+	var err error
+	var template_set *template.Template
+	template_set, err = template.ParseGlob("./templates/*")
+	if err != nil {
+		log.Println("Cannot parse templates:", err)
+		os.Exit(-1)
+	}
+
+	fmt.Printf("Template set loaded: %s \n", template_set.DefinedTemplates())
+
+	template_filename := "view" + ".html"
+	fmt.Printf("Template filename : %s\n", template_filename)
+
+	contains_this_template := template_set.Lookup(template_filename)
+	fmt.Printf("Lookup on the template_set result: %v \n", contains_this_template)
+
+	template, err := template_set.ParseFiles(template_filename)
+	if err != nil {
+		fmt.Printf("**** Failed to find the template: \"%s\"\n\t In template_set %v \n\tWith DefinedTemplates: %s\n\t Error: %v\n", template_filename, template_set, template_set.DefinedTemplates(), err)
+		return
+	}
+	fmt.Printf("Template set up : %v\n", template)
+	var template_buffer bytes.Buffer
+	if err := template.Execute(&template_buffer, nil); err != nil {
+		return
+	}
+
+	result := template_buffer.String()
+	fmt.Printf("Result of processing template: %v", result)
+
+	if err != nil {
+		fmt.Printf("Failed to render the template: %v \n", err)
+		return
+	}
+
+}
