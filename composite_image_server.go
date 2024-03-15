@@ -518,10 +518,10 @@ func renderTemplate(response http.ResponseWriter, template_name string, page *Pa
 // }
 
 func make_random_snapshot() *Snapshot {
-	width := 60 + random.Int31n(100)
-	height := 60 + random.Int31n(100)
-	x := 250 + random.Int31n(500-width)
-	y := 250 + random.Int31n(500-height)
+	width := 60 + rand.Int31n(100)
+	height := 60 + rand.Int31n(100)
+	x := 250 + rand.Int31n(500-width)
+	y := 250 + rand.Int31n(500-height)
 	return &Snapshot{width, height, x, y, "random"}
 }
 
@@ -790,7 +790,7 @@ func fetch_local_image_filenames(image_path string) ([]string, error) {
 
 	// choose quantity
 
-	image_count := random.Intn(30) + 1
+	image_count := rand.Intn(30) + 1
 	if image_count > 12 {
 		image_count = 1
 	}
@@ -804,7 +804,7 @@ func fetch_local_image_filenames(image_path string) ([]string, error) {
 			break
 		}
 		// Try and add one
-		index := random.Intn(len(all_image_filenames))
+		index := rand.Intn(len(all_image_filenames))
 		if !image_indexes[index] {
 			image_indexes[index] = true
 			new_image := all_image_filenames[index]
@@ -859,11 +859,11 @@ func snapshots_from_local_filenames(filenames []string, filepath string) ([]Snap
 	return snaps, nil
 }
 
-var random *rand.Rand
+// var random *rand.Rand
 
 func main() {
 
-	random = rand.New(rand.NewSource(99))
+	// random = rand.New(rand.NewSource(99))
 
 	//check_all_images()
 
