@@ -19,11 +19,23 @@
             padding:0px;
             background-size:cover;
             background-color: grey;
+            z-index:1;
+        }
+        #fullscreen_icon
+        {
+            position:absolute;
+            width:33px;
+            height:33px;
+            background-size: contain;
+            top:5px;
+            right:5px;
+            z-index:100;
         }
     </style>
     <div id="main_canvas">
     </div>
 <body>
+    <div id="fullscreen_icon"></div>
 
 </body>
 
@@ -33,6 +45,7 @@
     var photos=[]
 
     function new_page() {
+        window.setTimeout(new_page,60000);// repeat ad-infinitum
         let pageheight=document.documentElement.clientHeight
         let pagewidth=document.documentElement.clientWidth
 
@@ -111,12 +124,43 @@
 
         
 
-       window.setTimeout(new_page,60000);// repeat ad-infinitum
+       
 
     }
+    class FullScreenControl
+            {
+                constructor(cell_id)
+                {
+                    this.cell_id=cell_id;
+                    this.fullscreen=document.fullscreen;
+                    this.el=document.getElementById(cell_id);
+                    this.el.addEventListener("click",()=>this.toggle_fullscreen(event));
+                    this.set_icon();
 
+                }
+                set_icon()
+                {
+                    var img=this.fullscreen?"/photos/exit_fullscreen.png":"/photos/fullscreen.png";
+                    this.el.style.backgroundImage="url("+img+")";
+                }
+                toggle_fullscreen(evt)
+                {
+                    console.log("toggling fullscreen");
+                    this.fullscreen=!this.fullscreen;
+                    if (this.fullscreen)
+                    {
+                        document.documentElement.requestFullscreen();
+                    } else {
+                        document.exitFullscreen();
+                    }
+                    this.set_icon();
+
+                }
+            }
 
     new_page();
+    full_screen_control=new FullScreenControl("fullscreen_icon");
+
 </script>
 
 </html>

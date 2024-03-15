@@ -629,7 +629,7 @@ func test_layout_handler(w http.ResponseWriter, r *http.Request) {
 	// Now add some more....
 
 	for i := 1; i < len(snapshots); i++ {
-		cog := snap_set.get_CoG()
+		//cog := snap_set.get_CoG()
 		// log.Printf("Cog: %v\n", cog)
 		draw_CoG(canvas, snap_set.get_CoG())
 
