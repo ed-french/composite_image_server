@@ -21,8 +21,10 @@ import (
 	"math/rand"
 
 	"github.com/disintegration/imaging"
+	"github.com/nfnt/resize"
 
 	"path/filepath"
+	"strings"
 )
 
 var template_set *template.Template
@@ -313,80 +315,6 @@ type Cover struct {
 	highside_offset int32 // how much larger the position of the second would have to be to clear
 }
 
-type Direction struct {
-	xd   int32
-	yd   int32
-	name string
-}
-
-var (
-	LEFTWARDS  = Direction{-1, 0, "leftwards"}
-	RIGHTWARDS = Direction{1, 0, "rightwards"}
-	DOWNWARDS  = Direction{0, 1, "downwards"}
-	UPWARDS    = Direction{0, -1, "upwards"}
-)
-
-type PlacementSet []struct {
-	ImageCount int `json:"image_count"`
-	Placements []struct {
-		SizeIndex       int   `json:"size_index"`
-		PlacementOrder  int   `json:"placement_order"`
-		OffsetDirection []int `json:"offset_direction"`
-	} `json:"placements"`
-}
-
-// type Canvas struct {
-// 	// Unbounded notional canvas for assembling photos
-// 	photos []Snapshot // Will contain all the photos added so far
-// }
-
-// Layouts
-// 1 photo:
-
-// Size ordering, not the same as placement order!
-
-// 	1
-
-// --------------
-// 	1  or 1	2
-// 	2
-// --------------
-// 	  1
-// 	2   3
-// ---------------
-// 	1   4
-
-// 	3   2
-// ----------------
-
-//       2   1
-// 	4   3   5
-
-// -----------------
-//      3   2   5
-//      6	 1   4
-
-// -----------------
-
-//        2    4
-//       6   1   7
-//        5     3
-// -------------------
-
-//         2     3
-//         5   1   4
-//       7    6    8
-
-// --------------------
-
-//       4      3      7
-//       8      1     9
-//       5      2      6
-
-// ---------------------
-// Acceptable quantites
-// 1, 2, 4,
-
 func find_cover(first *Pair, second *Pair) Cover {
 	// Takes 2d Pairs and calculates their
 
@@ -491,31 +419,6 @@ func renderTemplate(response http.ResponseWriter, template_name string, page *Pa
 		http.Error(response, err.Error(), http.StatusInternalServerError)
 	}
 }
-
-// func viewHandler(response http.ResponseWriter, request *http.Request) {
-// 	title := request.URL.Path[len("/view/"):]
-// 	fmt.Printf("Request to view page : %s", title)
-// 	page, err := loadPage(title)
-// 	if err != nil {
-// 		fmt.Println("Failed to load the page from disc")
-// 		http.Redirect(response, request, "/edit/"+title, http.StatusFound)
-// 		return
-// 	}
-// 	fmt.Println("About to apply the template....")
-// 	renderTemplate(response, "view", page)
-// }
-
-// func saveHandler(response http.ResponseWriter, request *http.Request) {
-// 	title := request.URL.Path[len("/save/"):]
-// 	body := request.FormValue("body")
-// 	page := &Page{Title: title, Body: []byte(body)}
-// 	err := page.save()
-// 	if err != nil {
-// 		http.Error(response, err.Error(), http.StatusInternalServerError)
-// 		return
-// 	}
-// 	http.Redirect(response, request, "/view/"+title, http.StatusFound)
-// }
 
 func make_random_snapshot() *Snapshot {
 	width := 60 + rand.Int31n(100)
@@ -816,6 +719,48 @@ func fetch_local_image_filenames(image_path string) ([]string, error) {
 	return image_set, nil
 }
 
+func fetch_image_from_file(filepath string, filename string) (image.Image, error) {
+	img, err := imaging.Open(filepath+filename, imaging.AutoOrientation(true))
+
+	return img, err
+}
+
+func fetch_and_resize_image_from_file(filepath string, filename string, width int) (image.Image, error) {
+	img, err := fetch_image_from_file(filepath, filename)
+
+	if err != nil {
+		return nil, err
+	}
+	resized := resize.Resize(uint(width), 0, img, resize.Bilinear)
+	return resized, nil
+
+}
+
+func photoHandler(response http.ResponseWriter, request *http.Request) {
+	path := request.URL.Path
+	log.Printf("Path: %v\n", path)
+	filename, _ := strings.CutPrefix(path, "/photograph/")
+
+	width, err := strconv.Atoi(request.URL.Query().Get("width"))
+	if err != nil {
+		http.Error(response, "Missing width parameter", 400)
+		return
+	}
+	if width > 4000 || width < 10 {
+		http.Error(response, "Width must be between 10 and 4000", 400)
+		return
+	}
+
+	img, err := fetch_and_resize_image_from_file("photos/", filename, width)
+	if err != nil {
+		http.Error(response, err.Error(), 500)
+		return
+	}
+	response.Header().Set("Content-Type", "image/jpeg")
+	jpeg.Encode(response, img, nil)
+
+}
+
 func snapshot_from_jpeg_file(filename string, filepath string) (Snapshot, error) {
 	// file, err := os.Open(filepath + filename)
 
@@ -827,7 +772,7 @@ func snapshot_from_jpeg_file(filename string, filepath string) (Snapshot, error)
 
 	// img, err := jpeg.Decode(file)
 
-	img, err := imaging.Open(filepath+filename, imaging.AutoOrientation(true))
+	img, err := fetch_image_from_file(filepath, filename)
 
 	if err != nil {
 		log.Printf("Failed to decode the image: %v\n", filename)
@@ -845,15 +790,15 @@ func snapshot_from_jpeg_file(filename string, filepath string) (Snapshot, error)
 }
 
 func snapshots_from_local_filenames(filenames []string, filepath string) ([]Snapshot, error) {
-	snaps := make([]Snapshot, len(filenames))
-	for i, filename := range filenames {
+	snaps := make([]Snapshot, 0, len(filenames))
+	for _, filename := range filenames {
 		snap, err := snapshot_from_jpeg_file(filename, filepath)
 
 		if err != nil {
 			log.Printf("IGNORING BAD FILE: %v\n", filename)
 
 		} else {
-			snaps[i] = snap
+			snaps = append(snaps, snap)
 		}
 	}
 	return snaps, nil
@@ -861,11 +806,42 @@ func snapshots_from_local_filenames(filenames []string, filepath string) ([]Snap
 
 // var random *rand.Rand
 
+func Check_all_images(path string) (goods []string, bads []string) {
+	filenames, err := filepath.Glob(path + "*.jpg")
+	if err != nil {
+		log.Fatal(err)
+	}
+	for i, filename := range filenames {
+		filenames[i] = filepath.Base(filename)
+
+	}
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, filename := range filenames {
+		_, err := fetch_image_from_file(path, filename)
+		if err != nil {
+			bads = append(bads, filename)
+		} else {
+			goods = append(goods, filename)
+		}
+	}
+	return goods, bads
+}
+
+func report_bad_images(path string) {
+	goods, bads := Check_all_images(path)
+	fmt.Printf("Checked %v files\n", len(goods)+len(bads))
+	fmt.Printf("Bad files: %v\n", bads)
+
+}
+
 func main() {
 
 	// random = rand.New(rand.NewSource(99))
 
-	//check_all_images()
+	//report_bad_images("photos/")
 
 	log.Println("STARTED")
 
@@ -931,6 +907,8 @@ func main() {
 	http.HandleFunc("/composite_map/", compositeMapHandler)
 
 	http.HandleFunc("/composite_page/", compositePageHandler)
+
+	http.HandleFunc("/photograph/", photoHandler)
 
 	http.HandleFunc("/", homeHandler)
 

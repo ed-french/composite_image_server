@@ -86,10 +86,11 @@
                 ]}
 
         */
+       console.log(data);
        var container=document.getElementById("main_canvas");
 
        // Remove all old nodes:
-
+        container.innerHTML="";
  
         photos=[];
        Array.from(data.snaps).forEach(function(snap) {
@@ -102,7 +103,7 @@
         el.style.left=snap.x+"px";
         escaped_location=encodeURI(snap.location)
         console.log("Location encoded: "+escaped_location)
-        var photo_url="/photos/"+escaped_location+"?width="+snap.width;
+        var photo_url="/photograph/"+escaped_location+"?width="+snap.width;
         console.log("Fetching "+photo_url)
         el.style.backgroundImage="url("+photo_url+")";
         photos.push(el);// Save until we have them all
