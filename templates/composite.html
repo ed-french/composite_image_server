@@ -101,11 +101,15 @@
         el.style.height=snap.height+"px";
         el.style.top=snap.y+"px";
         el.style.left=snap.x+"px";
+
         escaped_location=encodeURI(snap.location)
         console.log("Location encoded: "+escaped_location)
+        el.addEventListener('click', function (event) {
+            window.location.href="http://"+window.location.host+"/photograph/"+snap.location+"?width=2000"
+        });
         var photo_url="/photograph/"+escaped_location+"?width="+snap.width;
         console.log("Fetching "+photo_url)
-        el.style.backgroundImage="url("+photo_url+")";
+        el.style.backgroundImage='url("'+photo_url+'")';
         photos.push(el);// Save until we have them all
         
         

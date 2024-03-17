@@ -631,8 +631,8 @@ func compositeMapHandler(response http.ResponseWriter, request *http.Request) {
 	// Now add some more to minimise gravity
 
 	for i := 1; i < len(snapshots); i++ {
-		cog := snap_set.get_CoG()
-		log.Printf("Cog: %v\n", cog)
+		//cog := snap_set.get_CoG()
+		//log.Printf("Cog: %v\n", cog)
 
 		another_img := snapshots[i]
 		snap_set.fit_another(&another_img)
