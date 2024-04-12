@@ -785,7 +785,7 @@ func snapshot_from_jpeg_file(filename string, filepath string) (Snapshot, error)
 		Height:   int32(img.Bounds().Dy()),
 		Location: filename,
 	}
-	return res, nil
+	return res, nil // comment
 
 }
 
