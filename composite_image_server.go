@@ -679,7 +679,7 @@ func homeHandler(response http.ResponseWriter, request *http.Request) {
 
 func fetch_local_image_filenames(image_path string) ([]string, error) {
 
-	all_image_filenames, err := filepath.Glob(image_path + "*.jpg")
+	all_image_filenames, err := filepath.Glob(image_path + "*.[jJ][pP][gG]")
 	if err != nil {
 		return nil, err
 	}

@@ -2,3 +2,4 @@ photos/*
 *.exe
 image_list.txt
 .vscode/*
+composite_image_server
