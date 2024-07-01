@@ -691,12 +691,19 @@ func fetch_local_image_filenames(image_path string) ([]string, error) {
 	}
 	log.Printf("Found %v images to consider\nFirst is : %v\n", len(all_image_filenames), all_image_filenames[0])
 
-	// choose quantity
+	// choose quantity, we want this to be very non-linear!
+	image_count := 0
 
-	image_count := rand.Intn(30) + 1
-	if image_count > 12 {
+	if rand.Intn(100) < 90 {
 		image_count = 1
+	} else {
+		image_count = rand.Intn(9) + 5
 	}
+
+	// image_count := rand.Intn(30) + 1
+	// if image_count > 12 {
+	// 	image_count = 1
+	// }
 
 	image_set := make([]string, 0, image_count)
 	image_indexes := make(map[int]bool)
