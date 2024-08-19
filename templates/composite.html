@@ -92,7 +92,10 @@
         */
        console.log(data);
        var container=document.getElementById("main_canvas");
-
+       var r=data.matt.red >> 8;
+       var g=data.matt.green >> 8;
+       var b=data.matt.blue >> 8;
+       container.style.backgroundColor="rgb("+r+","+g+","+b+")";
        // Remove all old nodes:
         container.innerHTML="";
  

@@ -71,6 +71,7 @@ type CoG struct {
 
 type SnapshotSet struct {
 	Snaps []*Snapshot `json:"snaps"`
+	Matt  MyCol       `json:"matt"`
 }
 
 func (snapset *SnapshotSet) append(snap Snapshot) {
@@ -400,7 +401,14 @@ func loadPage(title string) (*Page, error) {
 
 }
 
-func renderTemplate(response http.ResponseWriter, template_name string, page *Page) {
+func renderTemplate(response http.ResponseWriter,
+	template_name string,
+	page *Page) {
+	/*
+		response is the outgoing response
+		template_name is the name of the template
+		page is the data to be rendered
+	*/
 	template_filename := template_name + ".html"
 	fmt.Printf("Template filename : %s\n", template_filename)
 
@@ -413,8 +421,7 @@ func renderTemplate(response http.ResponseWriter, template_name string, page *Pa
 		http.Error(response, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	fmt.Printf("Template set up : %v\n", template)
-	err = template.Execute(response, page)
+	err = template.Execute(response, page) // renders page to response
 	if err != nil {
 		fmt.Printf("Failed to render the template: %v \n", err)
 		http.Error(response, err.Error(), http.StatusInternalServerError)
@@ -644,6 +651,19 @@ func compositeMapHandler(response http.ResponseWriter, request *http.Request) {
 	first_img.Y = 5000 - first_img.Height/2
 	snap_set.append(first_img)
 
+	// Calculate matt color from the first image
+	col, err := get_matt_color("photos/" + first_img.Location)
+
+	fmt.Printf("Matt color: %v\n", col)
+
+	if err != nil {
+		log.Fatal("Couldn't get the matt color")
+		http.Error(response, "Couldn't get the matt color", 500)
+		return
+	}
+
+	snap_set.Matt = col
+
 	// Now add some more to minimise gravity
 
 	for i := 1; i < len(snapshots); i++ {
@@ -667,6 +687,7 @@ func compositeMapHandler(response http.ResponseWriter, request *http.Request) {
 		resized := adjust_image_for_matt(width, height, *snap_set.Snaps[0])
 		snap_set = SnapshotSet{}
 		snap_set.append(resized)
+		snap_set.Matt = col
 	}
 
 	// make the json
