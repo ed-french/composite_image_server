@@ -92,10 +92,15 @@
         */
        console.log(data);
        var container=document.getElementById("main_canvas");
-       var r=data.matt.red >> 8;
-       var g=data.matt.green >> 8;
-       var b=data.matt.blue >> 8;
-       container.style.backgroundColor="rgb("+r+","+g+","+b+")";
+       var red_raw=data.matt.red;
+       var green_raw=data.matt.green;
+       var blue_raw=data.matt.blue;
+       var r=(red_raw & 0xff00) << 8; // push to top 8 bits from mid eight bits
+       var g=green_raw & 0xff00; // Keep in the middle bytes
+       var b=(blue_raw & 0xff00) >> 8; // push to bottom 8 bits from mid eight
+       var rgbhex_str = '#' + (r + g + b).toString(16) +'';
+       console.log(rgbhex_str);
+       container.style.backgroundColor=rgbhex_str;
        // Remove all old nodes:
         container.innerHTML="";
  
