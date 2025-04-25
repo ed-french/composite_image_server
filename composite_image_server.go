@@ -71,6 +71,7 @@ type CoG struct {
 
 type SnapshotSet struct {
 	Snaps []*Snapshot `json:"snaps"`
+	Matt  MyCol       `json:"matt"`
 }
 
 func (snapset *SnapshotSet) append(snap Snapshot) {
@@ -176,6 +177,7 @@ func (snapset *SnapshotSet) rescale_to_window(width int, height int) {
 	// Once a set has been fitted
 	// This will adjust the set so that the result fits inside the width and height
 	// and is generally centred
+
 	min_x := int32(1000000)
 	max_x := int32(-1000000)
 	min_y := int32(1000000)
@@ -399,7 +401,14 @@ func loadPage(title string) (*Page, error) {
 
 }
 
-func renderTemplate(response http.ResponseWriter, template_name string, page *Page) {
+func renderTemplate(response http.ResponseWriter,
+	template_name string,
+	page *Page) {
+	/*
+		response is the outgoing response
+		template_name is the name of the template
+		page is the data to be rendered
+	*/
 	template_filename := template_name + ".html"
 	fmt.Printf("Template filename : %s\n", template_filename)
 
@@ -412,8 +421,7 @@ func renderTemplate(response http.ResponseWriter, template_name string, page *Pa
 		http.Error(response, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	fmt.Printf("Template set up : %v\n", template)
-	err = template.Execute(response, page)
+	err = template.Execute(response, page) // renders page to response
 	if err != nil {
 		fmt.Printf("Failed to render the template: %v \n", err)
 		http.Error(response, err.Error(), http.StatusInternalServerError)
@@ -585,7 +593,17 @@ func editHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func compositeMapHandler(response http.ResponseWriter, request *http.Request) {
-	// Return map of the images required as json
+	// Return map of the images required as json as below
+	/*
+		{"snaps":[
+			{"width":503,"height":378,"x":1064,"y":6,"location":"102_0575.JPG"},
+			{"width":682,"height":331,"x":975,"y":385,"location":"20201005_124652.jpg"},
+			{"width":682,"height":384,"x":382,"y":0,"location":"P1080077.JPG"},
+			{"width":711,"height":475,"x":263,"y":385,"location":"P1040004.JPG"},
+			{"width":273,"height":364,"x":975,"y":716,"location":"IMGP1075.JPG"},
+			{"width":364,"height":273,"x":1248,"y":716,"location":"IMGP0972.JPG"}
+			]}
+	*/
 	height, err := strconv.Atoi(request.URL.Query().Get("height"))
 	if err != nil {
 		http.Error(response, "Missing height parameter", 400)
@@ -608,6 +626,11 @@ func compositeMapHandler(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
+	// At this point we just have a list of filenames
+	// We need to make that into a map
+	// so first all of the Snapshots for those images
+	// are retreived...
+
 	snapshots, err := snapshots_from_local_filenames(image_filenames, "photos/")
 	if err != nil {
 		log.Fatal("Couldn't fetch the snapshots")
@@ -628,6 +651,19 @@ func compositeMapHandler(response http.ResponseWriter, request *http.Request) {
 	first_img.Y = 5000 - first_img.Height/2
 	snap_set.append(first_img)
 
+	// Calculate matt color from the first image
+	col, err := get_matt_color("photos/" + first_img.Location)
+
+	fmt.Printf("Matt color: %v\n", col)
+
+	if err != nil {
+		log.Fatal("Couldn't get the matt color")
+		http.Error(response, "Couldn't get the matt color", 500)
+		return
+	}
+
+	snap_set.Matt = col
+
 	// Now add some more to minimise gravity
 
 	for i := 1; i < len(snapshots); i++ {
@@ -640,7 +676,19 @@ func compositeMapHandler(response http.ResponseWriter, request *http.Request) {
 	}
 
 	// rescale to the window
+	// trims the space around the large compositing canvas
+	// If the image is a singleton
 	snap_set.rescale_to_window(width, height)
+
+	// Deal with the special case of a single image
+	// by resizing it inwards to suit...
+	if len(snap_set.Snaps) == 1 {
+		fmt.Println("Resizing to allow for matt")
+		resized := adjust_image_for_matt(width, height, *snap_set.Snaps[0])
+		snap_set = SnapshotSet{}
+		snap_set.append(resized)
+		snap_set.Matt = col
+	}
 
 	// make the json
 
@@ -678,7 +726,15 @@ func homeHandler(response http.ResponseWriter, request *http.Request) {
 }
 
 func fetch_local_image_filenames(image_path string) ([]string, error) {
+	/*
+		Fetches the filenames of a random number of images
+		to be used to build the map for the page
+		returning a slice of strings
+		image_path is a string that points to a directory
+		containing images
+		only files with endings congruent with jpegs are considered
 
+	*/
 	all_image_filenames, err := filepath.Glob(image_path + "*.[jJ][pP][gG]")
 	if err != nil {
 		return nil, err
@@ -742,6 +798,56 @@ func fetch_and_resize_image_from_file(filepath string, filename string, width in
 	return resized, nil
 
 }
+func adjust_image_for_matt(canvas_width int, canvas_height int, original Snapshot) Snapshot {
+	/* Calculating a pleasing size is non-trivial
+	if the page is not full size (i.e. 1080p)
+	then don't resize
+	*/
+
+	// Only add matt if we are full HD
+
+	// if canvas_width != 1920 {
+	// 	fmt.Println("No need to allow for matt as we're not full HD", canvas_width)
+	// 	return original
+	// }
+	aspect_ratio := float64(original.Width) / float64(original.Height)
+
+	var new_width int
+	var new_height int
+
+	switch {
+	case aspect_ratio > 4:
+		// Very panoramic
+		log.Println("Very panaoramicy")
+		new_width = int(0.9 * float64(original.Width))
+		new_height = int(float64(new_width) / aspect_ratio)
+	case aspect_ratio < 0.25:
+		// very portraity
+		log.Println("Very portraity")
+		new_height = int(0.9 * float64(original.Height))
+		new_width = int(float64(new_height) * aspect_ratio)
+	case aspect_ratio > 1.777:
+		// More landscapey than screen
+		log.Println("Landscapey, but not excessive")
+		new_width = int(0.8 * float64(original.Width))
+		new_height = int(float64(new_width) / aspect_ratio)
+	default:
+		// Finally, more portraity than screen
+		log.Println("Portraity, but not excessively")
+		new_height = int(0.8 * float64(original.Height))
+		new_width = int(float64(new_height) * aspect_ratio)
+	}
+
+	// Having adjusted the size we need to recentre
+
+	x := int32((canvas_width - new_width) / 2)
+	y := int32((canvas_height - new_height) / 2)
+	new_snap := Snapshot{int32(new_width), int32(new_height), x, y, original.Location}
+	fmt.Println("Allowing for matt snapshot is : ", new_snap)
+
+	return new_snap
+
+}
 
 func photoHandler(response http.ResponseWriter, request *http.Request) {
 	path := request.URL.Path
@@ -758,9 +864,9 @@ func photoHandler(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	img, err := fetch_and_resize_image_from_file("photos/", filename, width)
+	img, err := fetch_image_from_file("photos/", filename)
 	if err != nil {
-		http.Error(response, err.Error(), 500)
+		http.Error(response, "Couldn't find the requested image", 400)
 		return
 	}
 	response.Header().Set("Content-Type", "image/jpeg")

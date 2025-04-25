@@ -9,9 +9,10 @@
             right:0px;
             width:100vw;
             height:100vh;
-            /*background-image:("/photos/background.jpeg");*/
-            background-color: black;
-            background-size: cover;
+            /* background-image: url("/photos/background.jpeg");
+            background-size: cover; */
+            background-color: rgb(66, 66, 78);
+            box-shadow: -2px 7px 19px 0px rgba(0, 0, 0,0.9) inset;
         }
         .precise {
             position:absolute;
@@ -21,12 +22,14 @@
             background-size:cover;
             background-color: grey;
             z-index:1;
+            /* box-shadow: 0px 0px 20px 12px rgba(0,0,0,0.6); */
+            box-shadow: 0px 0px 8px 4px rgba(0,0,0,0.4);
         }
         #fullscreen_icon
         {
             position:absolute;
-            width:33px;
-            height:33px;
+            width:15px;
+            height:15px;
             background-size: contain;
             top:5px;
             right:5px;
@@ -89,7 +92,15 @@
         */
        console.log(data);
        var container=document.getElementById("main_canvas");
-
+       var red_raw=data.matt.red;
+       var green_raw=data.matt.green;
+       var blue_raw=data.matt.blue;
+       var r=(red_raw & 0xff00) << 8; // push to top 8 bits from mid eight bits
+       var g=green_raw & 0xff00; // Keep in the middle bytes
+       var b=(blue_raw & 0xff00) >> 8; // push to bottom 8 bits from mid eight
+       var rgbhex_str = '#' + (r + g + b).toString(16) +'';
+       console.log(rgbhex_str);
+       container.style.backgroundColor=rgbhex_str;
        // Remove all old nodes:
         container.innerHTML="";
  
